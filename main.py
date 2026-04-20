@@ -1,4 +1,4 @@
-import PIL
+import pandas as pd
 import numpy as np
 import cv2
 import os
@@ -114,7 +114,9 @@ def load_pieces():
 
 def classify_all_squares(board, templates, debug=False):
     grid = [[None] * 8 for i in range(8)]
+    rank_num = 8
     for rank_index in range(8):
+        file_num = 1
         for file_index in range(8):
             x = file_index * square_size
             y = rank_index * square_size
@@ -134,9 +136,12 @@ def classify_all_squares(board, templates, debug=False):
 
             if std < EMPTY_THRESHOLD and best_score < MATCH_THRESHOLD:
                 best_piece = None
-            print(f"rank {rank_index}, file {file_index}: best: {best_piece} score={best_score:.3f} (std={std:.1f})")
-                
+
             grid[rank_index][file_index] = best_piece
+
+            print(f"rank {rank_num}, file {file_num}: piece: {best_piece} (score={best_score:.3f} std={std:.1f})")
+            file_num += 1
+        rank_num -= 1
 
     if debug:
         debug_classification_output(board, grid)
@@ -184,4 +189,5 @@ if __name__ == "__main__":
     highlighted = detect_turn(board, square_size, debug=True)
     pieces = load_pieces()
     grid = classify_all_squares(board, pieces, debug=True)
-    print(grid)
+    df = pd.DataFrame(grid)
+    print(df)
