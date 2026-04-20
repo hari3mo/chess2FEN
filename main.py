@@ -5,7 +5,8 @@ import os
 
 LIGHT_COLOR_BGR = np.array([220, 235, 238])   # cream squares
 DARK_COLOR_BGR  = np.array([100, 155, 115])   # green squares
-HIGHLIGHT_COLOR_BGR = np.array([154, 245, 245])   # yellow highlight for last move
+HIGHLIGHT_COLOR_LIGHT_BGR = np.array([154, 245, 245])   # yellow highlight for last move
+HIGHLIGHT_COLOR_DARK_BGR = np.array([94, 201, 189])
 
 COLOR_TOLERANCE = 25
 HIGHLIGHT_TOLERANCE = 40
@@ -21,6 +22,7 @@ def load_screenshot(path):
     img = cv2.imread(path)
 
     return img
+
 
 def detect_board(screenshot, debug=False):
     light_mask = cv2.inRange(
@@ -55,6 +57,7 @@ def detect_board(screenshot, debug=False):
 
     return (x, y, w, h)
 
+
 def crop_board(screenshot, region, debug=False):
     x, y, w, h = region
     w -= w % 8
@@ -67,6 +70,7 @@ def crop_board(screenshot, region, debug=False):
 
     return cropped
 
+
 def detect_turn(board, debug=False):
     highlighted = [[False] * 8 for i in range(8)]
     for rank in range(8):
@@ -76,11 +80,13 @@ def detect_turn(board, debug=False):
 
             square = board[y:y + square_size, x:x + square_size]
 
-            highlight_mask = cv2.inRange(
-                square,
-                HIGHLIGHT_COLOR_BGR - HIGHLIGHT_TOLERANCE,
-                HIGHLIGHT_COLOR_BGR + HIGHLIGHT_TOLERANCE)
-
+            mask_light = cv2.inRange(square,
+                HIGHLIGHT_COLOR_LIGHT_BGR - HIGHLIGHT_TOLERANCE,
+                HIGHLIGHT_COLOR_LIGHT_BGR + HIGHLIGHT_TOLERANCE)
+            mask_dark = cv2.inRange(square,
+                HIGHLIGHT_COLOR_DARK_BGR - HIGHLIGHT_TOLERANCE,
+                HIGHLIGHT_COLOR_DARK_BGR + HIGHLIGHT_TOLERANCE)
+            highlight_mask = cv2.bitwise_or(mask_light, mask_dark)
             matching_pixels = cv2.countNonZero(highlight_mask)
             total_pixels = square_size * square_size
             ratio = matching_pixels / total_pixels
@@ -92,6 +98,7 @@ def detect_turn(board, debug=False):
         debug_highlight_output(board, highlighted)
 
     return highlighted
+
 
 def load_pieces():
     templates = {}
@@ -111,6 +118,7 @@ def load_pieces():
         templates[piece] = (color_resized, mask_resized)
 
     return templates
+
 
 def classify_all_squares(board, templates, debug=False):
     grid = [[None] * 8 for i in range(8)]
@@ -139,7 +147,7 @@ def classify_all_squares(board, templates, debug=False):
 
             grid[rank_index][file_index] = best_piece
 
-            print(f"rank {rank_num}, file {file_num}: piece: {best_piece} (score={best_score:.3f} std={std:.1f})")
+            print(f'rank {rank_num}, file {file_num}: piece: {best_piece} (score={best_score:.3f} std={std:.1f})')
             file_num += 1
         rank_num -= 1
 
@@ -147,6 +155,90 @@ def classify_all_squares(board, templates, debug=False):
         debug_classification_output(board, grid)
 
     return grid
+
+
+def build_fen(grid, highlighted=None):
+    rank_strings = []
+
+    for rank_index in range(8):
+        rank_string = ''
+        empty_count = 0
+
+        for file_index in range(8):
+            piece = grid[rank_index][file_index]
+
+            if piece is None:
+                empty_count += 1
+            else:
+                if empty_count > 0:
+                    rank_string += str(empty_count)
+                    empty_count = 0
+
+                piece_color = piece[0]
+                piece_letter = piece[1]
+                piece_letter =piece_letter.upper() if piece_color == 'w' \
+                    else piece_letter.lower()
+                rank_string += piece_letter
+
+        if empty_count > 0:
+            rank_string += str(empty_count)
+
+        rank_strings.append(rank_string)
+
+    piece_placement = '/'.join(rank_strings)
+
+    active_color = determine_active_color(grid, highlighted)
+    castling_rights = determine_castling_rights(grid)
+
+    fen = (
+        f'{piece_placement} '
+        f'{active_color} '
+        f'{castling_rights}')
+
+    return fen
+
+def determine_active_color(grid, highlighted):
+    if highlighted is None:
+        return 'w'
+
+    pieces_on_highlights = []
+    for rank_index in range(8):
+        for file_index in range(8):
+            if highlighted[rank_index][file_index]:
+                piece = grid[rank_index][file_index]
+                if piece is not None:
+                    pieces_on_highlights.append(piece)
+
+    if len(pieces_on_highlights) != 1:
+        return 'w'
+
+    last_mover = pieces_on_highlights[0][0]   # 'w' or 'b'
+    return 'b' if last_mover == 'w' else 'w'
+
+
+def determine_castling_rights(grid):
+    rights = ''
+
+    white_king_home = grid[7][4] == 'wk'   # e1
+    white_rook_h1   = grid[7][7] == 'wr'   # h1
+    white_rook_a1   = grid[7][0] == 'wr'   # a1
+
+    if white_king_home and white_rook_h1:
+        rights += 'K'
+    if white_king_home and white_rook_a1:
+        rights += 'Q'
+
+    black_king_home = grid[0][4] == 'bk'   # e8
+    black_rook_h8   = grid[0][7] == 'br'   # h8
+    black_rook_a8   = grid[0][0] == 'br'   # a8
+
+    if black_king_home and black_rook_h8:
+        rights += 'k'
+    if black_king_home and black_rook_a8:
+        rights += 'q'
+
+    return rights if rights else '-'
+
 
 def debug_classification_output(board_image, grid):
     annotated = board_image.copy()
@@ -162,7 +254,8 @@ def debug_classification_output(board_image, grid):
                 (x + 5, y + 20),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,(0, 0, 255),2)
-    debug_output(annotated, "classification.png")
+    debug_output(annotated, 'classification.png')
+
 
 def debug_highlight_output(board, highlighted):
     for rank in range(8):
@@ -173,18 +266,21 @@ def debug_highlight_output(board, highlighted):
                 cv2.rectangle(board,(x, y),
                     (x + square_size, y + square_size),
                     (0, 0, 255),3)
-    debug_output(board, "highlights_detected.png")
+    debug_output(board, 'highlights_detected.png')
+
 
 def debug_output(image, filename):
     path = os.path.join('./debug', filename)
     cv2.imwrite(path, image)
     return path
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     # screenshot = load_screenshot('./templates/starting.png')
-    screenshot = load_screenshot('ssss.png')
+    # screenshot = load_screenshot('ssss.png')
+    screenshot = load_screenshot('test.png')
     region = detect_board(screenshot, debug=True)
-    print("Detected board region (x, y, w, h):", region)
+    print('Detected board region (x, y, w, h):', region)
     board = crop_board(screenshot, region, debug=True)
     square_size = board.shape[0] // 8
     highlighted = detect_turn(board,debug=True)
@@ -192,3 +288,5 @@ if __name__ == "__main__":
     grid = classify_all_squares(board, pieces, debug=True)
     df = pd.DataFrame(grid)
     print(df)
+    fen = build_fen(grid, highlighted)
+    print('FEN:', fen)
