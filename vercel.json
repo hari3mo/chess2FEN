@@ -2,15 +2,11 @@
     "rewrites": [
         {
             "source": "/analyze",
-            "destination": "/api/index"
+            "destination": "app"
         },
         {
             "source": "/debug/(.*)",
-            "destination": "/api/index"
-        },
-        {
-            "source": "/(.*)",
-            "destination": "/index.html"
+            "destination": "app"
         }
     ]
 }

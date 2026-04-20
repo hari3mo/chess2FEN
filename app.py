@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
+import sys
 import tempfile
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import your chess analysis functions from main.py
 from main import (
@@ -24,7 +27,7 @@ def serve_static(path):
 def serve_debug(filename):
     if os.environ.get('VERCEL'):
         return send_from_directory('/tmp', filename)
-    return send_from_directory('debug', filename)
+    return send_from_directory('./debug', filename)
 
 @app.route('/analyze', methods=['POST'])
 def analyze():

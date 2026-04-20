@@ -1,4 +1,4 @@
-import pandas as pd
+# import pandas as pd
 import numpy as np
 # import chess.engine
 # import chess
@@ -20,6 +20,7 @@ PIECE_CODES = ['wk', 'wq', 'wr', 'wb', 'wn', 'wp',
 
 EMPTY_THRESHOLD = 60
 MATCH_THRESHOLD = 0.70
+
 
 def load_screenshot(path):
     img = cv2.imread(path)
@@ -342,10 +343,10 @@ if __name__ == '__main__':
     highlighted = detect_turn(board,debug=True)
     pieces = load_pieces()
     grid = classify_all_squares(board, pieces, debug=True)
-    df = pd.DataFrame(grid, index=np.arange(8, 0, -1), 
-                      columns=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])\
-                        .fillna('*')
-    print(df)
+    # df = pd.DataFrame(grid, index=np.arange(8, 0, -1), 
+    #                   columns=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])\
+    #                     .fillna('*')
+    # print(df)
     fen = build_fen(grid, highlighted)
     print('FEN:', fen)
     # print(render_eval_bar(fen))
