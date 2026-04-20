@@ -55,8 +55,9 @@ def detect_board(screenshot, debug=False):
     x, y, w, h = cv2.boundingRect(largest_contour)
 
     if debug:
-        cv2.rectangle(screenshot, (x, y), (x + w, y + h), (0, 0, 255), 3)
-        debug_output(screenshot, 'detected_board.png')
+        debug_img = screenshot.copy()
+        cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 0, 255), 3)
+        debug_output(debug_img, 'detected_board.png')
 
     return (x, y, w, h)
 
