@@ -289,10 +289,14 @@ def debug_highlight_output(board, highlighted):
 
 
 def debug_output(image, filename):
-    path = os.path.join('./debug', filename)
+    if os.environ.get('VERCEL'):
+        path = os.path.join('/tmp', filename)
+    else:
+        os.makedirs('./debug', exist_ok=True)
+        path = os.path.join('./debug', filename)
+    
     cv2.imwrite(path, image)
     return path
-
 # def render_eval_bar(fen, width=40):
 #     board = chess.Board(fen)
 

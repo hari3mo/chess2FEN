@@ -22,6 +22,8 @@ def serve_static(path):
 
 @app.route('/debug/<path:filename>')
 def serve_debug(filename):
+    if os.environ.get('VERCEL'):
+        return send_from_directory('/tmp', filename)
     return send_from_directory('debug', filename)
 
 @app.route('/analyze', methods=['POST'])
