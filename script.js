@@ -10,44 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyBtn = document.getElementById('copy-btn');
     const resetBtn = document.getElementById('reset-btn');
     const lichessLink = document.getElementById('lichess-link');
-    const evalFill = document.getElementById('eval-fill');
-    const evalLabel = document.getElementById('eval-label');
 
-    // --- 2. Stockfish.js Engine Setup ---
-    // Initialize the engine as a Web Worker to keep the UI responsive
-    const stockfish = new Worker('stockfish-18-lite-single.js');
-    let currentEval = 0;
-
-    // Listen for engine messages (UCI Protocol)
-    stockfish.onmessage = function (event) {
-        const line = event.data;
-
-        // Parse evaluation: "info depth 15 ... score cp 120 ..."
-        if (line.includes('score')) {
-            const scoreMatch = line.match(/score (cp|mate) (-?\d+)/);
-            if (scoreMatch) {
-                const type = scoreMatch[1]; // 'cp' (centipawns) or 'mate'
-                const value = parseInt(scoreMatch[2]);
-
-                let displayScore;
-                if (type === 'cp') {
-                    currentEval = value / 100;
-                    displayScore = (currentEval > 0 ? "+" : "") + currentEval.toFixed(2);
-                } else {
-                    // Handle Mate-in-N
-                    currentEval = value > 0 ? 10000 : -10000;
-                    displayScore = (value > 0 ? "+M" : "-M") + Math.abs(value);
-                }
-
-                updateEvalBar(displayScore, currentEval);
-            }
-        }
-    };
-
-    // Initialize the engine
-    stockfish.postMessage('uci');
-
-    // --- 3. File Input Handlers ---
+    // --- 2. File Input Handlers ---
 
     // Drag & Drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => {
@@ -84,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processFile(file);
     }
 
-    // --- 4. Processing & Backend Communication ---
+    // --- 3. Processing & Backend Communication ---
 
     function processFile(file) {
         showPanel(processingView);
@@ -97,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData();
         formData.append('image', file);
 
-        // Send to Flask for Image-to-FEN conversion only
+        // Send to Flask for Image-to-FEN conversion
         fetch('/analyze', {
             method: 'POST',
             body: formData
@@ -116,11 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 2. Update to the cropped version from server
                     imagePreview.src = `/debug/cropped_board.png?t=${new Date().getTime()}`;
-
-                    // 3. Trigger Browser-Side Stockfish Analysis
-                    stockfish.postMessage('ucinewgame');
-                    stockfish.postMessage(`position fen ${data.fen}`);
-                    stockfish.postMessage('go depth 15');
                 }
             })
             .catch(error => {
@@ -130,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    // --- 5. UI Updates ---
+    // --- 4. UI Updates ---
 
     function showResult(fenString) {
         showPanel(resultView);
@@ -139,26 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update Lichess Link
         const formattedFen = fenString.replace(/ /g, '_');
         lichessLink.href = `https://lichess.org/analysis/standard/${formattedFen}`;
-
-        // Reset eval bar while engine starts thinking
-        evalLabel.textContent = "Calculating...";
-        evalFill.style.height = `50%`;
-    }
-
-    function updateEvalBar(scoreStr, scoreInPawns) {
-        evalLabel.textContent = scoreStr;
-
-        let whitePercentage = 50;
-
-        if (scoreStr.includes('M')) {
-            whitePercentage = scoreStr.startsWith('-') ? 0 : 100;
-        } else {
-            // Sigmoid math to map pawn advantage to a percentage (0-100%)
-            const winProb = 1 / (1 + Math.exp(-(scoreInPawns * 100) / 400));
-            whitePercentage = winProb * 100;
-        }
-
-        evalFill.style.height = `${whitePercentage}%`;
     }
 
     function showPanel(panelToShow) {
@@ -170,12 +109,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Manual trigger for the hidden file input
     uploadBtn.addEventListener('click', (e) => {
-        e.preventDefault(); // Prevent potential label conflicts
-        e.stopPropagation(); // Stop the event from bubbling
+        e.preventDefault();
+        e.stopPropagation();
         fileInput.click();
     });
 
-    // --- 6. Interactivity ---
+    // --- 5. Interactivity ---
 
     copyBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -189,8 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput.value = '';
         imagePreview.src = '';
         fenOutput.value = '';
-        // Stop any ongoing engine calculations
-        stockfish.postMessage('stop');
         showPanel(promptView);
     });
 
